@@ -1,0 +1,39 @@
+# Config and credentials
+config.py
+config.ini
+secrets.py
+credentials.py
+*_personal_info*
+.env
+.env.*
+
+# API keys and tokens
+api_keys.txt
+tokens.txt
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.coverage
+coverage.xml
+.pytest_cache/
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Output files
+*_papers*.pdf 
