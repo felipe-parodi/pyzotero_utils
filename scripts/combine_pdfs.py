@@ -36,7 +36,7 @@ from PyPDF2 import PdfMerger, PdfReader
 from pyzotero import zotero
 
 try:
-    from config import API_KEY, CONFIG, LIBRARY_ID, LIBRARY_TYPE
+    from pyzotero.pyzotero_utils.config import API_KEY, CONFIG, LIBRARY_ID, LIBRARY_TYPE
 except ImportError:
     raise ImportError(
         "Config file not found. Please create pyzotero_utils/config.py "
