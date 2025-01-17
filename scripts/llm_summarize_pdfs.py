@@ -45,6 +45,7 @@ import openai
 from PyPDF2 import PdfReader
 from pyzotero import zotero
 import requests
+import google.generativeai as genai
 
 import requests  # Add missing import
 from config import (  # Change to relative import
@@ -53,6 +54,7 @@ from config import (  # Change to relative import
     LIBRARY_ID,
     LIBRARY_TYPE,
     OPENAI_API_KEY,
+    GEMINI_API_KEY,
     PARENT_COLLECTION,
     PARENT_TARGET_COLLECTION,
     TARGET_SUBCOLLECTION,
@@ -106,66 +108,98 @@ def extract_text_from_pdf(pdf_bytes):
     return "\n".join(text_content)
 
 
+def chunk_text(text, max_chars=12000):
+    """Split text into chunks, trying to break at paragraph boundaries."""
+    if len(text) <= max_chars:
+        return [text]
+    
+    chunks = []
+    paragraphs = text.split('\n\n')
+    current_chunk = []
+    current_length = 0
+    
+    for para in paragraphs:
+        if current_length + len(para) > max_chars and current_chunk:
+            chunks.append('\n\n'.join(current_chunk))
+            current_chunk = [para]
+            current_length = len(para)
+        else:
+            current_chunk.append(para)
+            current_length += len(para)
+    
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
+    
+    return chunks
+
+
 def summarize_text_with_openai(text):
     """Summarize scientific text using OpenAI API with structured output."""
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
+    
     prompt = (
-        "You are a scientific paper summarizer specializing in neuroscience, particularly "
-        "primate neuroethology and naturalistic behavior studies. Your goal is to extract key "
-        "information about advances in methods, technology, and understanding that enable the "
-        "study of natural primate behavior. Summarize the following text using these sections:\n\n"
-        "1) Key findings: Main empirical results and discoveries, focusing on what was learned "
-        "about natural behavior or methodological breakthroughs\n"
-        "2) Core argument/thesis: Central theoretical contribution and how it advances our ability "
-        "to study natural behavior\n"
-        "3) Technical advances: Novel methods, tools, or approaches that enable more naturalistic "
-        "studies (e.g., wireless recording, computer vision, machine learning)\n"
-        "4) Cognitive implications: What this tells us about brain function and behavior in natural "
-        "contexts, beyond traditional controlled experiments\n"
-        "5) Evidence contribution: How this specifically advances our ability to study and understand "
-        "naturalistic primate behavior\n"
-        "6) Limitations and alternatives: Key caveats, technical challenges, and alternative "
-        "interpretations of the findings\n"
-        "7) Scientific context: How this connects to the broader field of naturalistic neuroscience "
-        "and primate behavior\n\n"
-        "Text to summarize:\n"
-        f"{text}\n\n"
-        "Guidelines:\n"
-        "- Write in clear, concise language\n"
-        "- Avoid any markdown formatting, special characters, or bullet points\n"
-        "- Focus specifically on advances that enable more naturalistic studies\n"
-        "- Be precise about methodological innovations and their impact\n"
-        "- Highlight implications for studying behavior in natural contexts\n"
-        "- Emphasize connections to ethology and field studies when relevant\n"
-        "- Note any bridges between controlled lab studies and natural behavior\n"
-        "- Identify scalable approaches that could be applied to other studies\n"
-        "- Write each section as a coherent paragraph, not a list\n"
-        "- Keep focus on how this enables better study of natural behavior"
+        "Create a structured paper analysis:\n\n"
+        "1) Findings: Main results\n"
+        "2) Argument: Central contribution\n"
+        "3) Advances: Methods enabling naturalistic studies\n"
+        "4) Limitations: Key caveats\n"
+        "5) Implications & Context: Insights & connections to broader field\n\n"
+        "Write each section as a concise paragraph. Focus on advances in studying natural behavior.\n\n"
+        f"Paper text:\n{text}"
     )
-
+    
     try:
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {
-                    "role": "system",
-                    "content": (
-                        "You are a scientific summarizer specializing in advances that enable the "
-                        "study of primate behavior in natural contexts. Focus on methodological "
-                        "and theoretical developments that bridge laboratory neuroscience with "
-                        "naturalistic behavior."
-                    ),
+                    "role": "system", 
+                    "content": "You are a scientific summarizer specializing in advances that enable the study of primate behavior in natural contexts."
                 },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            max_tokens=1024,  # Increased to allow for more detailed responses
+            max_tokens=500,
         )
         return response.choices[0].message.content.strip()
-
     except Exception as e:
         print(f"OpenAI API error: {str(e)}")
+        return ""
+
+
+def summarize_text_with_gemini(text):
+    """Summarize scientific text using Gemini API with structured output."""
+    try:
+        # Configure Gemini
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        # Create model with specific config
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-pro",
+            generation_config={
+                "temperature": 0.2,
+                "top_p": 0.95,
+                "top_k": 40,
+                "max_output_tokens": 1024,
+            }
+        )
+        
+        prompt = (
+            "Create a structured paper analysis:\n\n"
+            "1) Findings: Main results\n"
+            "2) Argument: Central contribution\n"
+            "3) Advances: Methods enabling naturalistic studies\n"
+            "4) Limitations: Key caveats\n"
+            "5) Implications & Context: Insights & connections to broader field\n\n"
+            "Write each section as a concise paragraph. Focus on advances in studying natural behavior.\n\n"
+            f"Paper text:\n{text}"
+        )
+        
+        response = model.generate_content(prompt)
+        return response.text.strip()
+        
+    except Exception as e:
+        print(f"Gemini API error: {str(e)}")
         return ""
 
 
@@ -262,7 +296,7 @@ def main():
                 continue
 
             # Summarize via OpenAI
-            summary_text = summarize_text_with_openai(extracted_text)
+            summary_text = summarize_text_with_gemini(extracted_text)
 
             # Write row to CSV
             writer.writerow([title_for_display, subcollection_name, summary_text])

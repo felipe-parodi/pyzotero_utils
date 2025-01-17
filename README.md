@@ -1,6 +1,8 @@
-# Pyzotero Utilities
+# Pyzotero Utils
 
-Utility scripts and tools for working with Zotero libraries via the pyzotero API.
+Tools for working with Zotero libraries and PDFs:
+- `llm_summarize_pdfs.py`: Generate concise summaries of PDFs using OpenAI
+- `combine_pdfs.py`: Combine PDFs from Zotero collections
 
 ## Setup
 1. Create `config.py` with your Zotero credentials (never commit this file):
@@ -34,4 +36,4 @@ Utility scripts and tools for working with Zotero libraries via the pyzotero API
   4. Contact repository admin to purge sensitive data from history
 
 ## Usage
-See individual script READMEs in the `scripts/` directory for specific usage instructions.
+See individual script READMEs in `scripts/`
