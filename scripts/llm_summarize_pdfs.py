@@ -112,23 +112,36 @@ def summarize_text_with_openai(text):
 
     prompt = (
         "You are a scientific paper summarizer specializing in neuroscience, particularly "
-        "primate neuroethology and naturalistic behavior studies. Summarize the following text "
-        "using these sections, writing in plain text without markdown or formatting:\n\n"
-        "1) Key findings: Main empirical results and discoveries\n"
-        "2) Core argument/thesis: Central theoretical contribution\n"
-        "3) Technical advances: Novel methods, tools, or approaches\n"
-        "4) Cognitive implications: What this tells us about brain function and behavior\n"
-        "5) Evidence contribution: How this advances, or may advance, our understanding of naturalistic primate behavior\n"
-        "6) Limitations and alternatives: Key caveats and other possible interpretations\n"
-        "7) Scientific context: How this connects to the broader field\n\n"
+        "primate neuroethology and naturalistic behavior studies. Your goal is to extract key "
+        "information about advances in methods, technology, and understanding that enable the "
+        "study of natural primate behavior. Summarize the following text using these sections:\n\n"
+        "1) Key findings: Main empirical results and discoveries, focusing on what was learned "
+        "about natural behavior or methodological breakthroughs\n"
+        "2) Core argument/thesis: Central theoretical contribution and how it advances our ability "
+        "to study natural behavior\n"
+        "3) Technical advances: Novel methods, tools, or approaches that enable more naturalistic "
+        "studies (e.g., wireless recording, computer vision, machine learning)\n"
+        "4) Cognitive implications: What this tells us about brain function and behavior in natural "
+        "contexts, beyond traditional controlled experiments\n"
+        "5) Evidence contribution: How this specifically advances our ability to study and understand "
+        "naturalistic primate behavior\n"
+        "6) Limitations and alternatives: Key caveats, technical challenges, and alternative "
+        "interpretations of the findings\n"
+        "7) Scientific context: How this connects to the broader field of naturalistic neuroscience "
+        "and primate behavior\n\n"
         "Text to summarize:\n"
         f"{text}\n\n"
         "Guidelines:\n"
         "- Write in clear, concise language\n"
-        "- Avoid any markdown formatting or special characters\n"
-        "- Focus on relevance to naturalistic primate behavior\n"
-        "- Be specific about methodological innovations\n"
-        "- Highlight implications for understanding natural behavior"
+        "- Avoid any markdown formatting, special characters, or bullet points\n"
+        "- Focus specifically on advances that enable more naturalistic studies\n"
+        "- Be precise about methodological innovations and their impact\n"
+        "- Highlight implications for studying behavior in natural contexts\n"
+        "- Emphasize connections to ethology and field studies when relevant\n"
+        "- Note any bridges between controlled lab studies and natural behavior\n"
+        "- Identify scalable approaches that could be applied to other studies\n"
+        "- Write each section as a coherent paragraph, not a list\n"
+        "- Keep focus on how this enables better study of natural behavior"
     )
 
     try:
@@ -137,12 +150,17 @@ def summarize_text_with_openai(text):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a scientific summarizer specializing in primate neuroethology and naturalistic behavior studies.",
+                    "content": (
+                        "You are a scientific summarizer specializing in advances that enable the "
+                        "study of primate behavior in natural contexts. Focus on methodological "
+                        "and theoretical developments that bridge laboratory neuroscience with "
+                        "naturalistic behavior."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
-            max_tokens=1024,
+            max_tokens=1024,  # Increased to allow for more detailed responses
         )
         return response.choices[0].message.content.strip()
 

@@ -40,6 +40,8 @@ code_todos.py
 data/
 *.csv
 *_papers*.pdf
+*_summaries*.csv
+openai_api_notes.txt
 
 # Output files
 *_summaries*.csv 
