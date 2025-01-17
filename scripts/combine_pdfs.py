@@ -30,24 +30,30 @@ Requirements:
 import argparse
 import os
 import tempfile
+from pathlib import Path
 
 import requests
 from PyPDF2 import PdfMerger, PdfReader
 from pyzotero import zotero
 
 try:
-    from pyzotero.pyzotero_utils.config import API_KEY, CONFIG, LIBRARY_ID, LIBRARY_TYPE
+    from pyzotero_utils.config import (
+        ZOTERO_API_KEY,
+        CONFIG,
+        LIBRARY_ID,
+        LIBRARY_TYPE,
+        PARENT_COLLECTION,
+        PARENT_TARGET_COLLECTION,
+        TARGET_SUBCOLLECTION,
+    )
 except ImportError:
     raise ImportError(
-        "Config file not found. Please create pyzotero_utils/config.py "
-        "with your Zotero credentials and settings."
+        "Config file not found. Please ensure pyzotero_utils is installed "
+        "and config.py exists in the package root."
     )
 
-# Collection and subcollection names
-PARENT_COLLECTION = "TICS"
-PARENT_TARGET_COLLECTION = "s3:sci-insights"
-TARGET_SUBCOLLECTION = "s3.3:social"
-RECURSIVE = False  # Set to True when you want to process all subcollections
+# Remove hardcoded collection names
+RECURSIVE = False  # Keep this as it's a script-specific default
 
 
 def find_collection_key(zot, collection_name, parent_key=None):
@@ -105,7 +111,7 @@ def get_pdf_content(zot, pdf_item, title):
         download_url = (
             f"https://api.zotero.org/users/{LIBRARY_ID}/items/{pdf_item['key']}/file"
         )
-        headers = {"Authorization": f"Bearer {API_KEY}", "Zotero-API-Version": "3"}
+        headers = {"Authorization": f"Bearer {ZOTERO_API_KEY}", "Zotero-API-Version": "3"}
 
         # First request to get the signed URL
         response = requests.get(download_url, headers=headers, allow_redirects=False)
@@ -392,7 +398,11 @@ def main():
     Creates multiple PDF chunks when combined size approaches 100MB.
     """
     # Initialize Zotero client
-    zot = zotero.Zotero(LIBRARY_ID, LIBRARY_TYPE, API_KEY)
+    zot = zotero.Zotero(LIBRARY_ID, LIBRARY_TYPE, ZOTERO_API_KEY)
+
+    # Create data directory if it doesn't exist
+    data_dir = Path(__file__).resolve().parent.parent / "data"
+    data_dir.mkdir(exist_ok=True)
 
     # Add command line argument parsing with default from RECURSIVE constant
     parser = argparse.ArgumentParser(description="Combine PDFs from Zotero collections")
@@ -406,9 +416,7 @@ def main():
     args = parser.parse_args()
 
     # Use path to parent collection
-    COLLECTION_PATH = (
-        f"{PARENT_COLLECTION}>{PARENT_TARGET_COLLECTION}>{TARGET_SUBCOLLECTION}"
-    )
+    COLLECTION_PATH = f"{PARENT_COLLECTION}>{PARENT_TARGET_COLLECTION}>{TARGET_SUBCOLLECTION}"
 
     # Find the parent collection
     parent_key = find_nested_collection(zot, COLLECTION_PATH)
@@ -456,7 +464,7 @@ def main():
                 full_name = f"{path_parts[1]}_{path_parts[2]}"
 
             output_name = full_name.replace(":", "_").replace("&", "_and_")
-            output_path = f"{output_name}_papers.pdf"
+            output_path = data_dir / f"{output_name}_papers.pdf"
 
             # Combine PDFs and get chunk information
             chunks_info = combine_pdfs(items_with_pdfs, zot, output_path)
@@ -480,7 +488,7 @@ def main():
         output_name = f"{path_parts[1]}_{path_parts[2]}".replace(":", "_").replace(
             "&", "_and_"
         )
-        output_path = f"{output_name}_papers.pdf"
+        output_path = data_dir / f"{output_name}_papers.pdf"
 
         # Combine PDFs and get chunk information
         chunks_info = combine_pdfs(items_with_pdfs, zot, output_path)

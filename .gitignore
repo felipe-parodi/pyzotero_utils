@@ -35,5 +35,11 @@ htmlcov/
 *.swp
 *.swo
 
+# Project specific
+code_todos.py
+data/
+*.csv
+*_papers*.pdf
+
 # Output files
-*_papers*.pdf 
+*_summaries*.csv 
