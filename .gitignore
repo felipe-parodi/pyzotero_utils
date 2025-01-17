@@ -36,6 +36,7 @@ htmlcov/
 *.swo
 
 # Project specific
+tics_outline.md
 code_todos.py
 data/
 *.csv
