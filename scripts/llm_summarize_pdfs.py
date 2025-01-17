@@ -107,42 +107,37 @@ def extract_text_from_pdf(pdf_bytes):
 
 
 def summarize_text_with_openai(text):
-    """
-    Sends text to the OpenAI API for summarization.
-    Returns a summary string that includes the requested structure:
-        - Key findings
-        - Core argument/thesis
-        - Technical advances
-        - Cognitive implications
-        - How it provides evidence for the subsection
-        - Potential controversies and alternative views
-        - Connection to previous & next sections
-    """
+    """Summarize scientific text using OpenAI API with structured output."""
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     prompt = (
-        "You are a helpful AI assistant. Read the following text and summarize it with "
-        "the following structure:\n\n"
-        "1) Key findings\n"
-        "2) Core argument/thesis\n"
-        "3) Technical advances\n"
-        "4) Cognitive implications\n"
-        "5) How it provides evidence for the subsection\n"
-        "6) Potential controversies & alternative views\n"
-        "7) Connection to previous & next sections\n\n"
-        "Text:\n"
+        "You are a scientific paper summarizer specializing in neuroscience, particularly "
+        "primate neuroethology and naturalistic behavior studies. Summarize the following text "
+        "using these sections, writing in plain text without markdown or formatting:\n\n"
+        "1) Key findings: Main empirical results and discoveries\n"
+        "2) Core argument/thesis: Central theoretical contribution\n"
+        "3) Technical advances: Novel methods, tools, or approaches\n"
+        "4) Cognitive implications: What this tells us about brain function and behavior\n"
+        "5) Evidence contribution: How this advances, or may advance, our understanding of naturalistic primate behavior\n"
+        "6) Limitations and alternatives: Key caveats and other possible interpretations\n"
+        "7) Scientific context: How this connects to the broader field\n\n"
+        "Text to summarize:\n"
         f"{text}\n\n"
-        "Now craft your structured summary."
+        "Guidelines:\n"
+        "- Write in clear, concise language\n"
+        "- Avoid any markdown formatting or special characters\n"
+        "- Focus on relevance to naturalistic primate behavior\n"
+        "- Be specific about methodological innovations\n"
+        "- Highlight implications for understanding natural behavior"
     )
 
     try:
         response = client.chat.completions.create(
-            # model="o1-2024-12-17",  # your preferred model
-            model="gpt-4o",
+            model="gpt-4",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a scholarly summarizer that produces comprehensive structured summaries.",
+                    "content": "You are a scientific summarizer specializing in primate neuroethology and naturalistic behavior studies.",
                 },
                 {"role": "user", "content": prompt},
             ],
