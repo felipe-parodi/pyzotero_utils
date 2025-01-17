@@ -1,6 +1,6 @@
 """Combine PDFs from Zotero collections with size management.
 
-    Use pyzot conda env.
+    Use pyzotero_utls conda env.
 
 This script connects to Zotero API to download and combine PDFs from specified collections,
 automatically splitting into multiple files when approaching 100MB size limit.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Summarize PDFs from Zotero collections using OpenAI.
 
-Use pyzot conda env.
+Use pyzotero_utls conda env.
 
 This script connects to Zotero API to process PDFs from specified collections,
 generating structured summaries via OpenAI and saving to CSV files.
