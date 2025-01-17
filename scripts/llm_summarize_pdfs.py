@@ -296,8 +296,8 @@ def main():
                 continue
 
             # Summarize via OpenAI or Gemini
-            # summary_text = summarize_text_with_openai(extracted_text)
-            summary_text = summarize_text_with_gemini(extracted_text)
+            summary_text = summarize_text_with_openai(extracted_text)
+            # summary_text = summarize_text_with_gemini(extracted_text)
 
             # Write row to CSV
             writer.writerow([title_for_display, subcollection_name, summary_text])
