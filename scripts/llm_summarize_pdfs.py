@@ -220,6 +220,27 @@ def find_collection_key(zot, collection_path):
     return current_key
 
 
+def get_citation(zot, item):
+    """Get short citation (Author et al., Year) for an item."""
+    try:
+        # Get creator info
+        creators = item['data'].get('creators', [])
+        first_author = creators[0]['lastName'] if creators else 'Unknown'
+        
+        # Get year
+        date = item['data'].get('date', '')
+        year = date.split('-')[0] if date else 'n.d.'
+        
+        # Format citation
+        if len(creators) > 1:
+            return f"{first_author} et al., {year}"
+        else:
+            return f"{first_author}, {year}"
+    except Exception as e:
+        print(f"Error creating citation: {str(e)}")
+        return "Citation unavailable"
+
+
 def main():
     # Initialize the Zotero client
     zot = zotero.Zotero(LIBRARY_ID, LIBRARY_TYPE, ZOTERO_API_KEY)
@@ -252,9 +273,9 @@ def main():
 
     with open(csv_filename, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
-        # Write CSV header
-        writer.writerow(["Citation", "Subcollection", "LLM Summary"])
-
+        # Add Short_Citation to header
+        writer.writerow(["Citation", "Short_Citation", "Subcollection", "LLM Summary"])
+        
         # Loop over each parent item in the subcollection
         for item in items:
             # If item is itself an attachment or note, skip
@@ -262,6 +283,7 @@ def main():
                 continue
 
             title_for_display = item["data"].get("title", "Untitled")
+            short_citation = get_citation(zot, item)
             item_key = item["key"]
             print(f"Processing: {title_for_display}...")
 
@@ -290,7 +312,7 @@ def main():
             # summary_text = summarize_text_with_gemini(extracted_text)
 
             # Write row to CSV
-            writer.writerow([title_for_display, subcollection_name, summary_text])
+            writer.writerow([title_for_display, short_citation, subcollection_name, summary_text])
 
     print(f"\nDone! CSV with summaries saved to: {csv_filename}")
 
