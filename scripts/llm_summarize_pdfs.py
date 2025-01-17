@@ -58,6 +58,7 @@ from config import (  # Change to relative import
     PARENT_COLLECTION,
     PARENT_TARGET_COLLECTION,
     TARGET_SUBCOLLECTION,
+    summarization_prompt,
 )
 
 def download_pdf_from_zotero(zot, pdf_item_key):
@@ -137,26 +138,15 @@ def summarize_text_with_openai(text):
     """Summarize scientific text using OpenAI API with structured output."""
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
     
-    prompt = (
-        "Create a structured analysis of this scientific paper focused on advances in studying natural primate behavior.\n\n"
-        "1)FINDINGS: Key empirical results about natural behavior, focusing on neural mechanisms, behavioral patterns, and methodological breakthroughs\n"
-        "2)ARGUMENT: How this work advances our understanding of natural behavior, particularly regarding Tinbergen's 4 questions (function, mechanism, development, evolution)\n"
-        "3)ADVANCES: Technical innovations enabling natural behavior study (e.g., wireless recording, behavioral tracking, analysis methods)\n"
-        "4)LIMITATIONS: Key methodological constraints and areas needing improvement for more naturalistic studies\n"
-        "5)IMPLICATIONS: How this work contributes to studying natural primate behavior and potential clinical/translational applications\n\n"
-        "Format each section exactly as shown above (e.g., '1)FINDINGS:'). Be specific about methods and results. Focus on aspects relevant to natural behavior and primate cognition.\n\n"
-        f"Paper text:\n{text}"
-    )
-    
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o", # it is 4o, not 4. this is not a typo.
             messages=[
                 {
                     "role": "system", 
                     "content": "You are a scientific summarizer specializing in advances that enable the study of primate behavior in natural contexts. Focus on technical innovations, neural mechanisms, and implications for understanding natural behavior."
                 },
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": summarization_prompt + f"\n\nPaper text:\n{text}"},
             ],
             temperature=0.2,
             max_tokens=1024,

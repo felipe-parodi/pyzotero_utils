@@ -22,3 +22,6 @@ CONFIG = {
     "max_tokens": 1024,
     "temperature": 0.2,
 } 
+
+summarization_prompt = """
+"""
