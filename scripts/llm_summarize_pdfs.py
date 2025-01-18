@@ -56,8 +56,7 @@ from config import (  # Change to relative import
     OPENAI_API_KEY,
     GEMINI_API_KEY,
     PARENT_COLLECTION,
-    PARENT_TARGET_COLLECTION,
-    TARGET_SUBCOLLECTION,
+    TARGET_COLLECTION,
     summarization_prompt,
 )
 
@@ -134,19 +133,63 @@ def chunk_text(text, max_chars=12000):
     return chunks
 
 
-def summarize_text_with_openai(text):
+def extract_subsection_key(collection_path):
+    """Extract parent subsection key from collection path.
+    e.g., 'TICS>s2.3.3:emerging' -> 's2.3'
+         'TICS>s2>s2.3.2:neuropred' -> 's2.3'
+    """
+    parts = collection_path.split('>')
+    for part in parts:
+        if ':' in part:  # Handle parts with descriptions
+            section = part.split(':')[0].lower()
+        else:
+            section = part.lower()
+            
+        if section.startswith('s'):
+            section = section[1:]  # Remove 's' prefix if present
+            
+        # Look for patterns like '2.3.3', '2.3', etc.
+        if '.' in section:
+            # Take first two numbers (e.g., '2.3' from '2.3.3')
+            numbers = section.split('.')[:2]
+            return f"s{'.'.join(numbers)}"
+            
+    return None
+
+
+def summarize_text_with_openai(text, collection_path):
     """Summarize scientific text using OpenAI API with structured output."""
+    from config import subsection_outline_dictionary
+    
     client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    
+    # Get subsection context if available
+    subsection_key = extract_subsection_key(collection_path)
+    prompt = summarization_prompt
+    
+    if subsection_key and subsection_key in subsection_outline_dictionary:
+        # Format section context with clear visual separation
+        context = (
+            "\n" + "="*40 + "\n" +
+            "SECTION CONTEXT\n" +
+            "-"*20 + "\n" +
+            subsection_outline_dictionary[subsection_key].replace("→", "\n→").replace(";", ";\n") +
+            "\n" + "="*40 + "\n\n"
+        )
+        
+        # Insert after first line
+        prompt_lines = prompt.split('\n', 1)
+        prompt = prompt_lines[0] + context + (prompt_lines[1] if len(prompt_lines) > 1 else '')
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4o", # it is 4o, not 4. this is not a typo.
+            model="gpt-4",
             messages=[
                 {
                     "role": "system", 
                     "content": "You are a scientific summarizer specializing in advances that enable the study of primate behavior in natural contexts. Focus on technical innovations, neural mechanisms, and implications for understanding natural behavior."
                 },
-                {"role": "user", "content": summarization_prompt + f"\n\nPaper text:\n{text}"},
+                {"role": "user", "content": prompt + f"\n\nPaper text:\n{text}"},
             ],
             temperature=0.2,
             max_tokens=1024,
@@ -241,80 +284,112 @@ def get_citation(zot, item):
         return "Citation unavailable"
 
 
+def find_target_collections(zot, parent_collection, target_name, path=""):
+    """Recursively find all collections containing target_name in their title.
+    Returns list of tuples: (collection_key, full_path)"""
+    results = []
+    
+    try:
+        # Get collections at current level
+        if not path:  # Top level
+            collections = zot.collections()
+        else:
+            parent_key = find_collection_key(zot, path.split('>')[-1])
+            collections = zot.collections_sub(parent_key)
+            
+        for collection in collections:
+            current_name = collection['data']['name']
+            current_path = f"{path}>{current_name}" if path else current_name
+            
+            # Check if this collection matches target
+            if target_name.lower() in current_name.lower():
+                results.append((collection['key'], current_path))
+            
+            # Recursively check subcollections
+            sub_results = find_target_collections(
+                zot, 
+                parent_collection,
+                target_name, 
+                current_path
+            )
+            results.extend(sub_results)
+            
+        return results
+        
+    except Exception as e:
+        print(f"Error searching collections: {str(e)}")
+        return results
+
+
 def main():
-    # Initialize the Zotero client
+    # Initialize Zotero client
     zot = zotero.Zotero(LIBRARY_ID, LIBRARY_TYPE, ZOTERO_API_KEY)
     
-    # Create data directory if it doesn't exist
+    # Create data directory
     data_dir = Path(__file__).resolve().parent.parent / "data"
     data_dir.mkdir(exist_ok=True)
     
-    # Construct full collection path
-    collection_path = f"{PARENT_COLLECTION}>{PARENT_TARGET_COLLECTION}>{TARGET_SUBCOLLECTION}"
+    # Find all matching collections
+    print(f"Searching for collections containing '{TARGET_COLLECTION}'...")
+    target_collections = find_target_collections(zot, PARENT_COLLECTION, TARGET_COLLECTION)
+    if not target_collections:
+        print(f"No collections found containing '{TARGET_COLLECTION}'")
+        return
     
-    # Find the actual collection key
-    try:
-        subcollection_key = find_collection_key(zot, collection_path)
-        subcollection_info = zot.collection(subcollection_key)
-        subcollection_name = subcollection_info['data']['name']
-    except Exception as e:
-        print(f"Error finding collection: {str(e)}")
-        return
-
-    # Prepare a CSV file to write all the results in data directory
-    csv_filename = data_dir / f"zotero_summaries_{subcollection_name}.csv".replace(" ", "_")
-    print(f"Will save summaries to CSV: {csv_filename}")
-
-    # Retrieve *parent* items in that subcollection 
-    items = zot.collection_items(subcollection_key)
-    if not items:
-        print("No parent items found in the specified subcollection.")
-        return
-
+    print(f"\nFound {len(target_collections)} matching collections")
+    
+    # Prepare CSV file
+    csv_filename = data_dir / f"zotero_summaries_{TARGET_COLLECTION}.csv".replace(" ", "_")
+    print(f"Will save summaries to: {csv_filename}")
+    
     with open(csv_filename, mode="w", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
-        # Add Short_Citation to header
-        writer.writerow(["Citation", "Short_Citation", "Subcollection", "LLM Summary"])
+        writer.writerow(["Citation", "Short_Citation", "Collection_Path", "LLM Summary"])
         
-        # Loop over each parent item in the subcollection
-        for item in items:
-            # If item is itself an attachment or note, skip
-            if item["data"].get("itemType") in ("attachment", "note"):
+        # Process each matching collection
+        for coll_idx, (collection_key, collection_path) in enumerate(target_collections, 1):
+            print(f"\n[{coll_idx}/{len(target_collections)}] Processing: {collection_path}")
+            
+            # Get items in this collection
+            items = zot.collection_items(collection_key)
+            if not items:
+                print("  No items found in collection")
                 continue
+            
+            # Filter out attachments and notes
+            papers = [item for item in items 
+                     if item["data"].get("itemType") not in ("attachment", "note")]
+            
+            print(f"  Found {len(papers)} papers")
+            
+            # Process items
+            for paper_idx, item in enumerate(papers, 1):
+                title = item["data"].get("title", "Untitled")
+                short_citation = get_citation(zot, item)
+                print(f"  [{paper_idx}/{len(papers)}] {short_citation}...", end="", flush=True)
 
-            title_for_display = item["data"].get("title", "Untitled")
-            short_citation = get_citation(zot, item)
-            item_key = item["key"]
-            print(f"Processing: {title_for_display}...")
+                # Get PDF and process
+                children = zot.children(item["key"])
+                pdf_bytes = None
+                for child in children:
+                    if child["data"].get("contentType") == "application/pdf":
+                        pdf_bytes = download_pdf_from_zotero(zot, child["key"])
+                        break
 
-            # Get children to find a PDF
-            children = zot.children(item_key)
-            pdf_bytes = None
+                if not pdf_bytes:
+                    print(" No PDF found")
+                    continue
 
-            for child in children:
-                if child["data"].get("contentType") == "application/pdf":
-                    pdf_bytes = download_pdf_from_zotero(zot, child["key"])
-                    # Just one PDF per item for demonstration
-                    break
+                extracted_text = extract_text_from_pdf(pdf_bytes)
+                if not extracted_text:
+                    print(" Could not extract text")
+                    continue
 
-            if not pdf_bytes:
-                print(f"No PDF found for item: {title_for_display}")
-                continue
+                summary_text = summarize_text_with_openai(extracted_text, collection_path)
+                writer.writerow([title, short_citation, collection_path, summary_text])
+                print(" ✓")
 
-            # Extract text from the PDF
-            extracted_text = extract_text_from_pdf(pdf_bytes)
-            if not extracted_text: 
-                print(f"Could not extract text for item: {title_for_display}")
-                continue
-
-            # Summarize via OpenAI or Gemini
-            summary_text = summarize_text_with_openai(extracted_text)
-            # summary_text = summarize_text_with_gemini(extracted_text)
-
-            # Write row to CSV
-            writer.writerow([title_for_display, short_citation, subcollection_name, summary_text])
-
-    print(f"\nDone! CSV with summaries saved to: {csv_filename}")
+    print(f"\nDone! Summaries saved to: {csv_filename}")
 
 
 if __name__ == "__main__":
