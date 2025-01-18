@@ -183,7 +183,7 @@ def summarize_text_with_openai(text, collection_path):
     
     try:
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "system", 
