@@ -285,14 +285,15 @@ def get_citation(zot, item):
 
 
 def find_target_collections(zot, parent_collection, target_name, path=""):
-    """Recursively find all collections containing target_name in their title.
+    """Recursively find all collections under the target collection.
     Returns list of tuples: (collection_key, full_path)"""
     results = []
     
     try:
         # Get collections at current level
         if not path:  # Top level
-            collections = zot.collections()
+            collections = [c for c in zot.collections() 
+                         if c['data']['name'] == parent_collection]
         else:
             parent_key = find_collection_key(zot, path.split('>')[-1])
             collections = zot.collections_sub(parent_key)
@@ -301,18 +302,35 @@ def find_target_collections(zot, parent_collection, target_name, path=""):
             current_name = collection['data']['name']
             current_path = f"{path}>{current_name}" if path else current_name
             
-            # Check if this collection matches target
-            if target_name.lower() in current_name.lower():
-                results.append((collection['key'], current_path))
+            # If we find the target collection or we're already inside it
+            if (target_name.lower() in current_name.lower() or 
+                (path and target_name.lower() in path.lower())):
+                # Add this collection
+                if not any(collection['key'] == k for k, _ in results):
+                    results.append((collection['key'], current_path))
+                # Recursively get ALL nested subcollections
+                def add_all_subcollections(coll_key, coll_path):
+                    subs = zot.collections_sub(coll_key)
+                    for sub in subs:
+                        sub_path = f"{coll_path}>{sub['data']['name']}"
+                        if not any(sub['key'] == k for k, _ in results):
+                            results.append((sub['key'], sub_path))
+                            # Recurse into this subcollection
+                            add_all_subcollections(sub['key'], sub_path)
+                
+                add_all_subcollections(collection['key'], current_path)
             
-            # Recursively check subcollections
-            sub_results = find_target_collections(
-                zot, 
-                parent_collection,
-                target_name, 
-                current_path
-            )
-            results.extend(sub_results)
+            # Continue recursing only if we haven't found target yet
+            if target_name.lower() not in current_path.lower():
+                sub_results = find_target_collections(
+                    zot, 
+                    parent_collection,
+                    target_name, 
+                    current_path
+                )
+                for key, sub_path in sub_results:
+                    if not any(key == k for k, _ in results):
+                        results.append((key, sub_path))
             
         return results
         
